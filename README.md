@@ -1,12 +1,13 @@
 # Skåne progress map (Google Sheets version)
 
-A shared map where tapping an area raises it by 20% (0, 20, 40, 60, 80, 100). The page is hosted on GitHub Pages, and progress is saved in a Google Sheet through a small Google Apps Script. Everyone using the link sees the same map, and open pages check for other people's changes every 30 seconds and whenever they are reopened.
+A shared map of Skåne's 23 härader where tapping a härad raises it by 20% (0, 20, 40, 60, 80, 100). The page is hosted on GitHub Pages, and progress is saved in a Google Sheet through a small Google Apps Script. Everyone using the link sees the same map, and open pages check for other people's changes every 30 seconds and whenever they are reopened.
 
 ## Files
 
 - `index.html`: the map page.
 - `config.js`: holds the Google Apps Script web app URL. This is the only file you need to edit.
 - `apps-script/Code.gs`: the script that goes into the Google Sheet. It is not used by GitHub Pages.
+- `data/harad-parishes.csv`: which parish or town was placed in which härad to build the map shapes.
 
 ## 1. Set up the Google Sheet
 
@@ -46,4 +47,10 @@ If you edit `Code.gs`, publish the change with **Deploy → Manage deployments**
 
 - Anyone with the page link can change the map. The script URL in `config.js` is visible in the public repository, so treat it the same way as the page link.
 - Saves take a second or two because Apps Script is slow to respond. The map changes color right away and saves in the background; the status line under the title shows "Saved" when it's done, or an error if a save failed, in which case the change is undone on the page.
-- The script accepts any short area id, so switching the map from municipalities to härader only needs a new `index.html`. Old municipality rows can be deleted from the Progress tab at that point.
+- The script accepts any short area id, so the map shapes can be changed later by replacing `index.html`. If you tested an earlier municipality version, delete those rows from the Progress tab.
+
+## Map data
+
+The härad shapes were built from Lantmäteriet's *Socken och stad* parish boundaries (released as open data under CC0), using the copy published on Zenodo (record 15021532). Each parish was assigned to its härad and the parishes were merged. Towns, which historically stood outside the härader, were merged into the härad around them. The boundaries were then simplified so the page loads quickly.
+
+The full list of assignments is in `data/harad-parishes.csv`. If a border looks wrong, that file is the place to check.
