@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Skåne municipality map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,750&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef0e8; --surface:#ffffff; --ink:#1f2a24; --muted:#5d6a62; --line:#c9cfc3;
+  --land:#dfe3d6; --edge:#ffffff; --sea:#d6e4ea; --focus:#1f5fbf; --err:#b3261e;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151a17; --surface:#1e2521; --ink:#e6ebe4; --muted:#9aa69e; --line:#36403a;
+    --land:#2f3832; --edge:#151a17; --sea:#18232a; --focus:#7fb0ff; --err:#ff8a80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151a17; --surface:#1e2521; --ink:#e6ebe4; --muted:#9aa69e; --line:#36403a;
+  --land:#2f3832; --edge:#151a17; --sea:#18232a; --focus:#7fb0ff; --err:#ff8a80; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 32px;display:grid;gap:20px;grid-template-columns:1fr}
+@media (min-width:900px){.wrap{grid-template-columns:minmax(0,1fr) 300px;align-items:start}}
+header{grid-column:1/-1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:750;letter-spacing:-.02em;margin:0;line-height:1.05}
+header p{margin:.4rem 0 0;color:var(--muted);max-width:60ch}
+.map{background:var(--sea);border-radius:14px;overflow:hidden;position:relative}
+svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.m{fill:var(--land);stroke:var(--edge);stroke-width:1.4;stroke-linejoin:round;cursor:pointer;transition:fill .15s}
+.m:hover{filter:brightness(.93)}
+.m:focus{outline:none;stroke:var(--focus);stroke-width:3}
+.lbl{font-size:13px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-opacity:.75;pointer-events:none;text-anchor:middle;dominant-baseline:middle}
+.lbl.s{font-size:10px}
+.lbl .pct{font-weight:400}
+.hide-labels .lbl{display:none}
+.tip{position:absolute;left:12px;top:12px;background:var(--surface);color:var(--ink);padding:6px 10px;border-radius:8px;font-weight:600;font-size:.95rem;box-shadow:0 1px 0 var(--line);pointer-events:none;opacity:0;transition:opacity .1s}
+.tip.on{opacity:1}
+aside{background:var(--surface);border-radius:14px;padding:16px;display:grid;gap:18px}
+h2{font-size:1.05rem;margin:0 0 8px;font-weight:600}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0;position:relative}
+.sw[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
+.sw:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.sw.erase{background:var(--land);}
+.sw.erase::after{content:"";position:absolute;left:50%;top:15%;bottom:15%;width:2px;background:var(--muted);transform:translateX(-50%) rotate(45deg)}
+.custom{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--muted);font-size:.9rem}
+.custom input{width:40px;height:32px;border:1px solid var(--line);border-radius:6px;background:none;padding:2px;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button.b{font:inherit;font-weight:600;font-size:.92rem;background:none;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.b:hover{background:var(--bg)}
+button.b:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+ul{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto;border-top:1px solid var(--line)}
+li button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:.95rem}
+li button:hover{background:var(--bg)}
+li button:focus-visible{outline:2px solid var(--focus)}
+.dot{width:14px;height:14px;border-radius:4px;background:var(--land);border:1px solid var(--line);flex:none}
+.legend{border:0;max-height:none}
+.legend li{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:.95rem}
+.legend .n{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend .dot{width:18px;height:18px}
+li button .st{margin-left:auto;color:var(--muted);font-size:.85rem}
+.status{font-size:.9rem;margin-top:.5rem;color:var(--muted)}
+.status[data-kind="err"]{color:var(--err);font-weight:600}
+.count{color:var(--muted);font-size:.88rem;margin:0 0 8px}
+@media (prefers-reduced-motion:reduce){.m,.tip{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Skåne by municipality</h1>
+    <p>Tap a municipality to raise it by 20%. After 100% it goes back to 0%. Changes are saved to a shared Google Sheet, so everyone using this link sees the same map.</p>
+    <p class="status" id="status" role="status">Loading…</p>
+  </header>
+  <div class="map" id="mapbox">
+    <svg id="svg" role="img" aria-label="Map of the 33 municipalities of Skåne"></svg>
+    <div class="tip" id="tip"></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Progress</h2>
+      <ul class="legend" id="legend"></ul>
+    </section>
+    <section class="row">
+      <button class="b" id="toggleLabels">Hide names</button>
+      <button class="b" id="clear">Reset all</button>
+    </section>
+    <section>
+      <h2>Municipalities</h2>
+      <p class="count" id="count"></p>
+      <ul id="list"></ul>
+    </section>
+  </aside>
+</div>
+<script src="config.js"></script>
+<script>
+const SHEET_URL = (window.SKANE_CONFIG && window.SKANE_CONFIG.sheetUrl || "").trim();
+const DATA = {"w":1000,"h":996,"m":[{"id":"1260","name":"Bjuv","d":"M297.6,378.8L271.7,355.3L267.2,346.8L250.6,345.8L241.5,339.5L226.5,342.3L218.8,355.0L206.7,362.5L214.6,380.7L226.3,388.6L223.0,401.5L229.1,426.6L225.8,450.4L241.3,461.4L259.2,456.9L269.9,448.8L275.5,425.1L273.2,405.3L297.6,378.8Z","cx":249.9,"cy":395.7,"a":6306},{"id":"1272","name":"Bromölla","d":"M963.2,256.9L949.6,248.0L949.1,247.3L948.3,246.5L946.7,244.5L945.0,242.6L944.0,243.4L943.4,244.2L935.3,251.8L933.9,251.4L933.1,251.1L929.9,268.0L919.2,277.0L926.9,295.1L923.3,324.7L931.2,338.1L943.2,317.2L948.7,319.5L942.5,341.6L935.0,353.9L934.4,378.4L915.3,382.9L904.8,409.8L934.8,415.7L957.1,427.8L975.2,430.4L974.9,409.8L979.3,404.3L979.3,394.0L981.8,389.8L981.7,389.2L981.9,388.6L982.5,388.2L983.1,388.1L983.5,387.5L983.7,386.7L984.1,386.2L984.7,385.9L985.0,385.2L985.1,384.4L984.4,377.6L985.7,375.3L986.0,371.8L987.2,370.8L988.1,370.8L990.5,367.6L992.4,365.1L993.7,363.4L996.4,359.8L996.4,356.2L996.4,355.4L996.4,353.0L997.7,344.5L997.9,343.8L999.3,335.7L999.8,334.2L1000.0,333.1L1000.0,332.4L998.4,328.6L997.4,325.3L997.0,324.4L996.9,322.9L996.8,320.6L997.6,318.6L996.7,311.3L996.4,310.5L996.5,309.6L996.1,307.7L996.1,306.7L996.0,306.1L997.7,298.2L998.0,297.3L996.0,289.6L995.6,288.2L995.0,285.2L994.9,284.3L994.6,282.9L994.7,282.2L994.6,280.8L994.0,278.0L993.9,277.4L993.6,276.1L993.3,275.1L993.1,273.9L993.0,273.0L992.8,272.3L992.4,271.8L992.5,271.0L991.9,269.7L991.7,267.9L990.8,266.0L990.4,262.3L990.7,258.4L990.9,255.1L977.8,257.6L976.3,255.6L975.6,255.7L974.9,255.5L971.6,257.9L970.9,259.3L968.9,261.9L968.6,263.3L968.4,262.6L967.8,262.6L967.5,261.9L965.2,259.6L964.9,258.5L964.0,257.8L963.2,256.9Z","cx":958.4,"cy":336.4,"a":10857},{"id":"1231","name":"Burlöv","d":"M319.1,719.4L317.0,716.3L311.2,727.2L299.0,732.5L275.7,737.7L291.7,743.1L296.0,751.4L296.8,761.4L309.6,766.9L323.0,764.5L315.6,744.5L320.2,737.6L328.3,724.9L319.2,719.5Z","cx":307.6,"cy":743.7,"a":1087},{"id":"1278","name":"Båstad","d":"M214.5,65.3L199.6,75.8L180.1,72.7L165.8,62.3L128.0,41.3L85.5,81.0L55.4,59.8L41.4,78.7L89.7,112.4L91.3,120.4L147.1,175.5L164.0,176.4L190.3,162.6L199.9,162.5L205.0,146.0L215.8,136.6L227.9,139.9L241.8,135.1L249.2,86.9L237.7,77.1L214.5,65.3Z","cx":156.7,"cy":107.3,"a":15063},{"id":"1285","name":"Eslöv","d":"M522.4,588.4L506.0,596.2L499.5,623.9L486.7,610.9L479.0,610.2L467.5,582.4L467.2,557.9L458.1,535.7L478.1,525.3L468.6,503.7L443.9,491.9L439.1,482.1L445.2,469.3L439.4,461.0L445.3,447.4L441.5,439.5L420.8,434.8L409.2,459.0L389.0,479.3L403.4,488.2L392.9,504.1L400.5,518.7L397.6,529.5L379.9,521.3L376.4,509.0L349.6,531.5L334.8,526.9L323.8,534.0L325.8,552.9L337.3,556.5L332.8,581.0L362.9,568.5L362.2,582.7L366.4,614.4L360.8,617.0L377.5,625.7L400.7,625.8L405.3,648.6L418.6,643.4L435.6,651.7L450.1,651.7L470.2,664.0L481.4,663.1L496.2,670.4L529.7,697.5L549.4,663.4L542.1,656.7L527.1,656.6L535.4,621.2L551.6,611.0L525.1,599.2L522.4,588.4Z","cx":434.9,"cy":576.2,"a":23258},{"id":"1283","name":"Helsingborg","d":"M190.5,334.1L173.8,315.7L168.9,301.7L184.9,289.7L180.0,280.4L161.6,281.4L170.9,263.8L165.7,252.2L155.9,247.7L158.5,254.5L142.1,278.1L139.4,287.0L116.3,299.7L116.8,319.1L93.2,316.0L72.1,328.0L80.2,345.7L105.5,374.9L114.6,390.5L126.2,435.5L142.3,444.7L149.0,457.3L146.1,475.0L169.6,474.6L177.4,470.8L189.0,481.0L200.3,481.0L227.9,490.3L228.4,505.0L239.0,504.8L244.8,481.0L258.5,470.3L259.2,456.9L241.3,461.4L225.8,450.4L229.1,426.6L223.0,401.5L226.3,388.6L214.6,380.7L206.7,362.5L192.5,356.2L190.5,334.1Z","cx":165.2,"cy":386.0,"a":19675},{"id":"1293","name":"Hässleholm","d":"M723.5,180.7L715.2,172.4L697.8,169.5L693.1,142.7L683.4,129.1L675.2,107.7L664.1,116.6L655.9,113.4L643.7,124.6L635.3,116.1L623.1,115.5L594.3,101.6L587.7,89.4L556.1,94.8L534.1,102.3L533.4,113.8L507.4,129.2L500.8,150.8L494.9,153.9L503.9,186.4L495.5,190.5L476.1,188.0L458.7,220.5L463.2,233.6L481.2,266.4L474.2,281.6L482.1,304.7L479.4,320.1L463.3,357.3L491.6,373.5L507.2,367.0L524.3,369.3L525.5,389.4L535.6,401.0L572.8,412.0L566.5,423.8L575.7,437.3L567.0,443.6L570.5,454.4L555.2,459.0L552.5,476.7L563.6,479.1L574.0,472.7L595.5,476.1L612.4,488.6L626.4,469.5L616.4,461.7L623.8,444.9L637.2,430.7L640.7,418.2L663.2,418.2L676.0,423.1L726.1,361.1L727.4,338.6L735.0,311.1L735.0,294.9L725.6,296.0L714.3,244.6L728.2,222.0L723.5,180.7Z","cx":600.8,"cy":272.3,"a":72914},{"id":"1284","name":"Höganäs","d":"M155.9,247.7L134.7,241.7L128.4,247.4L110.5,224.5L40.4,188.6L8.5,181.6L0.0,187.7L3.4,198.8L19.8,207.1L42.9,242.6L46.7,277.1L52.8,282.9L62.9,323.3L72.1,328.0L93.2,316.0L116.8,319.1L116.3,299.7L139.4,287.0L142.1,278.1L158.5,254.5L155.9,247.7Z","cx":81.5,"cy":255.0,"a":10413},{"id":"1266","name":"Hörby","d":"M612.4,488.6L595.5,476.1L574.0,472.7L563.6,479.1L552.5,476.7L550.0,500.0L518.9,529.1L524.3,540.7L517.7,549.8L523.7,572.9L522.4,588.4L525.1,599.2L551.6,611.0L535.4,621.2L527.1,656.6L542.1,656.7L549.4,663.4L572.8,665.4L573.6,656.8L597.0,652.2L616.0,653.0L617.8,636.2L629.6,626.0L656.3,634.4L672.5,644.4L688.0,639.4L691.9,648.1L704.5,637.3L710.5,624.9L706.2,604.4L691.0,603.7L688.7,589.8L678.2,586.4L674.3,574.7L686.7,563.2L688.5,540.9L676.0,538.8L685.5,523.1L667.1,507.0L663.2,518.6L647.0,521.2L642.7,534.3L627.8,525.7L627.1,516.0L611.5,496.9L612.4,488.6Z","cx":603.0,"cy":574.4,"a":23849},{"id":"1267","name":"Höör","d":"M552.5,476.7L555.2,459.0L570.5,454.4L567.0,443.6L575.7,437.3L566.5,423.8L572.8,412.0L535.6,401.0L525.5,389.4L524.3,369.3L507.2,367.0L502.8,383.6L494.7,394.7L485.2,391.0L471.1,423.1L462.3,432.8L446.2,431.3L441.5,439.5L445.3,447.4L439.4,461.0L445.2,469.3L439.1,482.1L443.9,491.9L468.6,503.7L478.1,525.3L458.1,535.7L467.2,557.9L467.5,582.4L479.0,610.2L486.7,610.9L499.5,623.9L506.0,596.2L522.4,588.4L523.7,572.9L517.7,549.8L524.3,540.7L518.9,529.1L550.0,500.0L552.5,476.7Z","cx":503.2,"cy":482.1,"a":17600},{"id":"1276","name":"Klippan","d":"M391.0,262.3L373.1,260.3L367.3,275.1L347.8,277.0L332.9,256.6L320.9,249.0L302.1,264.0L266.5,268.5L270.9,285.5L280.1,298.0L300.0,313.8L308.8,330.1L313.8,337.3L304.9,354.6L310.4,367.2L341.2,385.5L352.3,405.2L352.9,406.1L349.2,412.5L370.0,420.6L403.8,420.1L409.6,415.6L422.7,428.4L420.8,434.8L441.5,439.5L446.2,431.3L462.3,432.8L471.1,423.1L485.2,391.0L494.7,394.7L502.8,383.6L507.2,367.0L491.6,373.5L463.3,357.3L454.5,357.3L434.4,341.9L408.2,334.0L406.8,334.3L399.4,318.8L408.4,309.0L405.5,298.7L387.9,288.6L394.1,278.8L391.0,262.3Z","cx":380.2,"cy":348.3,"a":20946},{"id":"1290","name":"Kristianstad","d":"M927.9,200.9L909.2,191.3L888.4,199.8L860.2,235.9L851.0,261.4L842.4,296.4L834.1,299.1L822.7,315.2L809.9,312.9L792.8,336.7L759.4,330.2L735.0,311.1L727.4,338.6L726.1,361.1L676.0,423.1L663.2,418.2L640.7,418.2L637.2,430.7L623.8,444.9L616.4,461.7L626.4,469.5L612.4,488.6L611.5,496.9L627.1,516.0L627.8,525.7L642.7,534.3L647.0,521.2L663.2,518.6L667.1,507.0L685.5,523.1L676.0,538.8L688.5,540.9L686.7,563.2L674.3,574.7L678.2,586.4L688.7,589.8L691.0,603.7L706.2,604.4L710.5,624.9L721.6,630.8L741.2,637.8L753.7,631.3L753.5,617.9L772.1,626.7L776.1,641.8L777.7,640.9L790.5,639.7L807.2,633.3L819.3,633.9L828.4,588.1L834.2,569.5L850.9,531.4L881.2,505.5L882.4,490.7L889.1,480.6L930.5,485.8L951.4,470.8L962.9,442.7L957.1,427.8L934.8,415.7L904.8,409.8L915.3,382.9L934.4,378.4L935.0,353.9L942.5,341.6L948.7,319.5L943.2,317.2L931.2,338.1L923.3,324.7L926.9,295.1L919.2,277.0L929.9,268.0L932.7,251.0L930.2,230.9L925.9,225.6L927.9,200.9Z","cx":799.0,"cy":439.7,"a":76833},{"id":"1261","name":"Kävlinge","d":"M332.8,581.0L315.9,579.8L292.4,571.6L278.1,585.0L242.3,583.1L221.0,586.6L226.5,621.8L217.7,629.5L214.3,653.2L260.4,676.0L261.6,664.7L272.9,646.1L287.6,641.2L300.9,655.6L320.0,649.2L329.3,647.8L328.5,614.4L349.8,610.6L360.8,617.0L366.4,614.4L362.2,582.7L362.9,568.5L332.8,581.0Z","cx":283.8,"cy":616.1,"a":9418},{"id":"1282","name":"Landskrona","d":"M147.8,521.7L127.6,497.6L102.5,504.7L116.0,529.7L121.1,547.8L147.8,521.7ZM239.0,504.8L228.4,505.0L227.9,490.3L200.3,481.0L189.0,481.0L177.4,470.8L169.6,474.6L146.1,475.0L165.5,500.6L171.7,513.8L171.0,529.5L174.9,567.5L190.7,566.6L202.6,559.4L210.6,564.9L221.0,586.6L242.3,583.1L278.1,585.0L292.4,571.6L285.1,557.0L272.3,556.7L252.2,562.7L247.4,543.9L261.7,531.8L264.3,517.0L239.0,504.8Z","cx":216.0,"cy":532.5,"a":8337},{"id":"1262","name":"Lomma","d":"M320.0,649.2L300.9,655.6L287.6,641.2L272.9,646.1L261.6,664.7L260.4,676.0L285.0,693.2L285.6,718.5L273.6,736.8L275.7,737.7L298.9,732.5L311.2,727.2L317.0,716.3L316.9,686.4L325.4,672.1L320.0,649.2Z","cx":295.0,"cy":684.8,"a":3676},{"id":"1281","name":"Lund","d":"M360.8,617.0L349.8,610.6L328.5,614.4L329.3,647.8L320.0,649.2L325.4,672.1L316.9,686.4L337.4,690.1L348.3,706.6L366.0,708.1L389.3,700.9L400.7,711.4L399.3,720.9L411.0,738.3L428.0,746.3L423.2,762.7L407.8,759.3L402.1,768.6L411.0,781.9L410.4,800.2L434.5,807.3L451.4,832.7L473.1,827.7L488.2,830.9L500.4,806.9L499.3,793.4L507.6,784.4L510.7,754.1L518.4,740.8L544.4,744.9L549.5,715.0L529.7,697.5L496.2,670.4L481.4,663.1L470.2,664.0L450.1,651.7L435.6,651.7L418.6,643.4L405.3,648.6L400.7,625.8L377.5,625.7L360.8,617.0Z","cx":437.2,"cy":714.9,"a":24371},{"id":"1280","name":"Malmö","d":"M296.0,751.4L291.8,743.2L275.7,737.7L273.6,736.8L256.3,741.1L257.7,750.4L247.8,764.2L229.8,773.4L209.8,800.5L213.8,806.5L214.6,831.2L221.0,860.9L237.6,848.3L269.0,848.5L289.8,835.0L314.5,833.5L327.7,819.5L335.4,786.1L330.1,771.0L323.0,764.5L309.6,766.9L296.8,761.4L296.1,751.6Z","cx":271.0,"cy":799.6,"a":9668},{"id":"1273","name":"Osby","d":"M783.6,6.8L770.7,0.0L757.0,5.4L754.5,26.5L740.1,53.6L737.0,52.5L706.2,54.3L682.5,62.7L671.4,79.4L632.9,69.9L617.4,73.3L596.7,84.0L587.7,89.4L594.3,101.6L623.1,115.5L635.3,116.1L643.7,124.6L655.9,113.4L664.1,116.6L675.2,107.7L683.4,129.1L693.1,142.7L697.8,169.5L715.2,172.4L723.5,180.7L738.6,159.9L762.0,163.4L764.1,146.8L784.2,138.2L792.7,121.8L802.1,118.8L811.9,86.6L825.5,78.5L832.2,65.7L842.8,72.9L827.9,114.3L824.5,142.8L829.0,154.8L843.5,160.7L847.9,134.7L864.8,133.3L873.9,162.5L860.8,169.6L858.2,192.2L888.4,199.8L909.2,191.3L912.4,177.4L917.4,153.4L919.9,138.7L923.4,126.4L923.4,125.2L923.1,121.2L922.2,118.7L921.1,116.0L919.7,115.1L920.2,110.1L929.9,107.0L947.0,103.2L950.7,96.7L951.2,96.1L953.1,92.2L954.8,88.4L955.7,86.5L957.4,81.5L959.0,76.1L961.0,72.3L961.7,72.7L962.4,73.2L963.3,73.5L963.1,72.5L965.4,61.8L966.7,60.3L946.7,56.9L907.5,43.9L887.8,40.0L852.3,21.5L840.0,32.2L811.7,32.0L786.0,19.9L783.0,13.2L783.6,6.9Z","cx":797.0,"cy":96.5,"a":33401},{"id":"1275","name":"Perstorp","d":"M479.4,320.1L482.1,304.7L474.2,281.6L481.2,266.4L463.2,233.6L458.7,220.5L426.1,217.8L414.0,237.1L394.6,253.9L391.0,262.3L394.1,278.8L387.9,288.6L405.5,298.7L408.4,309.0L399.4,318.8L406.8,334.3L408.2,334.0L434.4,341.9L454.5,357.3L463.3,357.3L479.5,320.3Z","cx":439.0,"cy":285.7,"a":9008},{"id":"1291","name":"Simrishamn","d":"M819.3,633.9L807.2,633.3L790.5,639.7L777.7,640.9L776.1,641.8L776.0,658.4L785.7,661.0L794.4,672.6L777.2,675.6L760.5,696.8L756.6,719.8L759.8,740.8L777.1,756.1L803.8,765.7L805.6,784.3L793.5,792.0L798.2,808.0L788.6,827.9L791.8,840.2L774.0,850.7L762.8,870.1L768.6,879.0L780.2,870.5L788.2,882.2L796.4,905.6L823.3,924.8L828.9,937.8L841.9,905.6L856.9,892.9L864.6,875.2L878.2,867.2L891.0,849.7L898.6,811.1L890.6,799.4L885.5,779.9L870.8,766.5L860.0,731.9L860.3,704.9L833.8,694.6L825.1,685.8L820.6,660.6L819.3,633.9Z","cx":824.4,"cy":786.2,"a":22845},{"id":"1265","name":"Sjöbo","d":"M691.9,648.1L688.0,639.4L672.5,644.4L656.3,634.4L629.6,626.0L617.8,636.2L616.0,653.0L597.0,652.2L573.6,656.8L572.8,665.4L549.4,663.4L529.7,697.5L549.5,715.0L544.4,744.9L518.4,740.8L510.7,754.1L507.6,784.4L515.8,814.7L540.7,824.5L554.9,823.9L569.7,833.7L575.9,844.1L592.1,843.4L595.1,827.4L617.5,825.2L627.0,818.9L626.8,806.0L641.4,802.9L650.7,793.9L659.1,798.9L671.4,776.4L680.0,780.0L696.7,772.5L699.2,754.7L722.1,730.2L694.7,697.7L684.3,677.6L678.2,675.5L691.9,648.1Z","cx":609.9,"cy":735.7,"a":28163},{"id":"1264","name":"Skurup","d":"M569.7,833.7L554.9,823.9L540.7,824.5L515.8,814.7L507.6,784.4L499.3,793.4L500.4,806.9L488.2,830.9L475.8,833.7L472.5,844.9L471.8,870.5L483.3,886.2L471.4,919.2L484.0,924.8L492.4,941.5L489.3,955.2L500.8,950.5L525.5,952.3L545.5,946.1L551.2,933.1L569.6,924.6L555.4,908.7L558.7,892.7L569.6,868.1L572.8,853.3L569.7,833.7Z","cx":520.1,"cy":879.2,"a":11170},{"id":"1230","name":"Staffanstorp","d":"M402.1,768.6L407.8,759.3L423.2,762.7L428.0,746.3L411.0,738.3L399.3,720.9L400.7,711.4L389.3,700.9L366.0,708.1L348.3,706.6L337.4,690.1L316.9,686.4L317.0,716.3L319.1,719.4L328.3,724.9L320.3,737.5L315.6,744.5L323.0,764.5L330.1,771.0L349.6,775.0L353.3,760.1L388.8,757.0L402.1,768.6Z","cx":362.3,"cy":733.8,"a":5748},{"id":"1214","name":"Svalöv","d":"M310.4,367.2L297.6,378.8L273.2,405.3L275.5,425.1L269.9,448.8L259.2,456.9L258.5,470.3L244.8,481.0L239.0,504.8L264.3,517.0L261.7,531.8L247.4,543.9L252.2,562.7L272.3,556.7L285.1,557.0L292.4,571.6L315.9,579.8L332.8,581.0L337.3,556.5L325.8,552.9L323.8,534.0L334.8,526.9L349.6,531.5L376.4,509.0L379.9,521.3L397.6,529.5L400.5,518.7L392.9,504.1L403.4,488.2L389.0,479.3L409.2,459.0L420.8,434.8L422.7,428.4L409.6,415.6L403.8,420.1L370.0,420.6L349.2,412.5L352.9,406.1L352.3,405.2L341.2,385.5L310.4,367.2Z","cx":323.5,"cy":474.4,"a":21616},{"id":"1263","name":"Svedala","d":"M402.1,768.6L388.8,757.0L353.3,760.1L349.6,775.0L330.1,771.0L335.4,786.1L327.7,819.5L314.5,833.5L326.1,848.2L330.1,862.1L346.7,864.5L346.8,873.8L358.2,879.5L367.8,868.3L376.8,877.7L402.8,872.8L422.6,874.0L439.4,879.3L455.5,868.7L467.1,846.1L472.5,844.9L475.8,833.7L488.2,830.9L473.1,827.7L451.4,832.7L434.5,807.3L410.4,800.2L411.0,781.9L402.1,768.6Z","cx":387.9,"cy":825.7,"a":12140},{"id":"1270","name":"Tomelilla","d":"M776.1,641.8L772.1,626.7L753.5,617.9L753.7,631.3L741.2,637.8L721.6,630.9L710.5,624.9L704.5,637.3L691.9,648.1L678.2,675.5L684.3,677.6L694.7,697.7L722.1,730.2L699.2,754.7L696.7,772.5L680.0,780.0L671.4,776.4L659.1,798.9L684.2,849.6L698.4,856.8L702.8,866.0L723.7,880.9L739.0,872.0L762.8,870.1L774.0,850.7L791.8,840.2L788.6,827.9L798.2,808.0L793.5,792.0L805.6,784.3L803.8,765.7L777.1,756.1L759.8,740.8L756.6,719.8L760.5,696.8L777.2,675.6L794.4,672.6L785.7,661.0L776.0,658.4L776.1,641.8Z","cx":734.5,"cy":759.4,"a":21640},{"id":"1287","name":"Trelleborg","d":"M472.5,844.9L467.1,846.1L455.5,868.7L439.4,879.3L422.6,874.0L402.8,872.8L376.8,877.7L367.8,868.3L358.2,879.5L346.8,873.8L337.6,876.8L321.7,894.4L314.2,884.4L289.7,887.4L289.3,910.4L284.8,932.9L270.2,952.3L303.3,967.1L311.3,961.2L333.2,968.3L342.0,965.3L358.4,969.9L391.6,985.3L430.3,996.0L448.4,985.7L489.3,955.2L492.4,941.5L484.0,924.8L471.4,919.2L483.3,886.2L471.8,870.5L472.5,844.9Z","cx":391.1,"cy":927.1,"a":19753},{"id":"1233","name":"Vellinge","d":"M346.8,873.8L346.7,864.5L330.1,862.1L326.1,848.2L314.5,833.5L289.8,835.0L269.0,848.5L237.6,848.3L221.0,860.9L232.0,874.4L230.4,883.3L239.2,907.2L215.8,918.6L208.0,896.7L185.6,899.9L182.5,925.9L169.7,971.3L187.1,973.1L212.8,947.8L228.7,956.7L260.3,948.7L270.2,952.3L284.8,932.9L289.3,910.4L289.7,887.4L314.2,884.4L321.7,894.4L337.6,876.8L346.8,873.8Z","cx":255.0,"cy":899.7,"a":10984},{"id":"1286","name":"Ystad","d":"M762.8,870.1L739.0,872.0L723.7,880.9L702.8,866.0L698.4,856.8L684.2,849.6L659.1,798.9L650.7,793.9L641.4,802.9L626.8,806.0L627.0,818.9L617.5,825.2L595.1,827.4L592.1,843.4L575.9,844.1L569.7,833.7L572.8,853.3L569.6,868.1L558.7,892.7L555.4,908.7L569.6,924.6L595.5,917.0L639.9,917.2L654.2,922.2L681.6,910.2L703.7,914.7L726.8,932.2L755.6,957.7L773.8,953.6L798.9,959.9L815.2,957.9L824.3,951.5L828.9,937.8L823.3,924.8L796.4,905.6L788.2,882.2L780.2,870.5L768.6,879.0L762.8,870.1Z","cx":681.9,"cy":887.7,"a":20132},{"id":"1292","name":"Ängelholm","d":"M241.8,135.1L227.9,139.9L215.8,136.6L205.0,146.0L199.9,162.5L190.3,162.6L164.0,176.4L147.1,175.5L149.4,188.6L183.0,212.9L181.5,234.1L165.7,252.2L170.9,263.8L161.6,281.4L180.0,280.4L184.9,289.7L168.9,301.7L173.8,315.7L190.5,334.1L210.6,322.9L233.3,324.1L247.8,292.8L270.9,285.5L266.5,268.5L302.1,264.0L320.9,249.0L321.8,238.8L333.3,231.5L332.9,219.9L344.8,206.7L355.8,185.6L355.9,172.4L344.7,156.7L343.8,156.0L341.4,154.0L338.6,151.7L335.8,149.6L334.6,149.0L333.9,148.7L322.4,146.8L321.7,146.9L320.3,147.2L311.2,148.9L287.7,146.6L282.2,147.0L261.4,145.1L259.8,144.8L255.5,141.8L254.6,139.7L254.2,139.0L252.6,136.9L251.5,136.5L250.0,135.9L247.1,135.6L245.0,135.4L241.8,135.1Z","cx":247.4,"cy":220.4,"a":24524},{"id":"1277","name":"Åstorp","d":"M308.8,330.1L300.0,313.8L280.1,298.0L270.9,285.5L247.8,292.8L233.3,324.1L210.6,322.9L190.5,334.1L192.5,356.2L206.7,362.5L218.8,355.0L226.5,342.3L241.5,339.5L250.6,345.8L267.2,346.8L271.7,355.3L297.6,378.8L310.4,367.2L304.9,354.6L313.8,337.3L308.9,330.2Z","cx":260.4,"cy":331.8,"a":5384},{"id":"1257","name":"Örkelljunga","d":"M534.1,102.3L516.5,106.6L506.8,100.1L497.0,105.1L479.0,86.7L468.6,94.0L443.7,97.8L425.7,117.6L400.7,125.9L381.6,144.7L382.1,151.6L381.2,152.0L369.3,167.2L368.2,167.9L355.9,172.4L355.8,185.6L344.8,206.7L332.9,219.9L333.3,231.5L321.8,238.8L320.9,249.0L332.9,256.6L347.8,277.0L367.3,275.1L373.1,260.3L391.0,262.3L394.6,253.9L414.0,237.1L426.1,217.8L458.7,220.5L476.1,188.0L495.5,190.5L503.9,186.4L494.9,153.9L500.8,150.8L507.4,129.2L533.4,113.8L534.1,102.3Z","cx":422.3,"cy":178.4,"a":18290},{"id":"1256","name":"Östra Göinge","d":"M888.4,199.8L858.2,192.2L860.8,169.6L873.9,162.5L864.8,133.3L847.9,134.7L843.5,160.7L829.0,154.8L824.5,142.8L827.9,114.3L842.8,72.9L832.2,65.7L825.5,78.5L811.9,86.6L802.1,118.8L792.7,121.8L784.2,138.2L764.1,146.8L762.0,163.4L738.6,159.9L723.5,180.7L728.2,222.0L714.3,244.6L725.6,296.0L735.0,294.9L735.0,311.1L759.4,330.2L792.8,336.7L809.9,312.9L822.7,315.2L834.1,299.1L842.4,296.4L851.0,261.4L860.2,235.9L888.4,199.8Z","cx":795.1,"cy":221.4,"a":25084}]};
+const STATES = [
+  {name:"0%", pct:0, color:null},
+  {name:"20%", pct:20, color:"#f8e9a1"},
+  {name:"40%", pct:40, color:"#f2cf3a"},
+  {name:"60%", pct:60, color:"#c9d24a"},
+  {name:"80%", pct:80, color:"#86bf52"},
+  {name:"100%", pct:100, color:"#2f8f46"}
+];
+const svg = document.getElementById("svg"), tip = document.getElementById("tip");
+const NS = "http://www.w3.org/2000/svg";
+let state = {};
+const PCT_TO_INDEX = {0:0,20:1,40:2,60:3,80:4,100:5};
+
+svg.setAttribute("viewBox", `0 0 ${DATA.w} ${DATA.h}`);
+const gShapes = document.createElementNS(NS,"g"), gLabels = document.createElementNS(NS,"g");
+svg.append(gShapes, gLabels);
+const paths = {}, dots = {}, stLabels = {}, names = {}, pctEls = {};
+
+const statusEl = document.getElementById("status");
+function setStatus(text, kind){ statusEl.textContent = text; statusEl.dataset.kind = kind || ""; }
+let pending = 0;
+let changes = 0; // bumped on every local change, so a load that started earlier can't undo it
+
+// Talks to the Google Apps Script web app. Requests are sent as text/plain so the
+// browser doesn't need a CORS preflight, which Apps Script can't answer.
+async function callSheet(payload){
+  const opts = payload
+    ? {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(payload)}
+    : {method:"GET", cache:"no-store"};
+  const url = payload ? SHEET_URL : SHEET_URL + "?action=get&t=" + Date.now();
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(r.status);
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function load(){
+  if (!SHEET_URL) { setStatus("No Google Sheet connected yet. Add the web app URL in config.js.", "err"); return; }
+  if (pending > 0) return; // don't overwrite a change that is still being saved
+  const startedAt = changes;
+  try {
+    const data = await callSheet(null);
+    if (pending > 0 || changes !== startedAt) return;
+    const next = {};
+    Object.entries(data.progress || {}).forEach(([id, pct]) => {
+      pct = Number(pct);
+      if (names[id] && PCT_TO_INDEX[pct]) next[id] = PCT_TO_INDEX[pct];
+    });
+    state = next;
+    DATA.m.forEach(m => apply(m.id)); updateCounts();
+    setStatus("Up to date", "ok");
+  } catch(e) {
+    setStatus("Can't reach the Google Sheet. Changes won't be saved.", "err");
+  }
+}
+
+// Saves run one at a time, in order, so quick repeated taps can't arrive out of order.
+let queue = Promise.resolve();
+function saveOne(id, prevIndex){
+  if (!SHEET_URL) { setStatus("No Google Sheet connected yet, so this change isn't saved.", "err"); return; }
+  pending++; changes++; setStatus("Saving…", "");
+  const pct = STATES[state[id] || 0].pct;
+  queue = queue.then(() => sendSave(id, pct, prevIndex));
+}
+async function sendSave(id, pct, prevIndex){
+  try {
+    await callSheet({action:"set", id, name: names[id], pct});
+    setStatus("Saved", "ok");
+  } catch(e) {
+    if (prevIndex) state[id] = prevIndex; else delete state[id];
+    apply(id); updateCounts();
+    setStatus(`Couldn't save ${names[id]}. Check your connection and try again.`, "err");
+  } finally { pending--; }
+}
+function apply(id){
+  const s = STATES[state[id] || 0];
+  paths[id].style.fill = s.color || "";
+  dots[id].style.background = s.color || "";
+  stLabels[id].textContent = s.name;
+  pctEls[id].textContent = s.name;
+  paths[id].setAttribute("aria-label", `${names[id]}: ${s.name}`);
+}
+const legendCounts = [];
+STATES.forEach(s => {
+  const li = document.createElement("li"), dot = document.createElement("span"), n = document.createElement("span");
+  dot.className = "dot"; if (s.color) dot.style.background = s.color;
+  n.className = "n"; li.append(dot, document.createTextNode(s.name), n);
+  document.getElementById("legend").append(li); legendCounts.push(n);
+});
+function updateCounts(){
+  const c = STATES.map(() => 0);
+  DATA.m.forEach(m => c[state[m.id] || 0]++);
+  c.forEach((v,i) => legendCounts[i].textContent = v);
+  const avg = Math.round(DATA.m.reduce((sum, m) => sum + STATES[state[m.id] || 0].pct, 0) / DATA.m.length);
+  document.getElementById("count").textContent = `Overall ${avg}% complete. ${c[5]} of ${DATA.m.length} at 100%.`;
+}
+function step(id, dir){
+  const prev = state[id] || 0;
+  const next = (prev + dir + STATES.length) % STATES.length;
+  if (next === 0) delete state[id]; else state[id] = next;
+  apply(id); updateCounts(); saveOne(id, prev);
+  if (tip.classList.contains("on")) showTip(id);
+}
+function showTip(id){ tip.textContent = `${names[id]}: ${STATES[state[id] || 0].name}`; tip.classList.add("on"); }
+
+DATA.m.forEach(m => {
+  names[m.id] = m.name;
+  const p = document.createElementNS(NS,"path");
+  p.setAttribute("d", m.d); p.setAttribute("class","m");
+  p.setAttribute("tabindex","0"); p.setAttribute("role","button");
+  p.addEventListener("click", e => step(m.id, e.shiftKey ? -1 : 1));
+  p.addEventListener("contextmenu", e => { e.preventDefault(); step(m.id, -1); });
+  p.addEventListener("keydown", e => {
+    if (e.key==="Enter"||e.key===" ") { e.preventDefault(); step(m.id, e.shiftKey ? -1 : 1); }
+  });
+  p.addEventListener("mouseenter", () => showTip(m.id));
+  p.addEventListener("mouseleave", () => tip.classList.remove("on"));
+  p.addEventListener("focus", () => showTip(m.id));
+  p.addEventListener("blur", () => tip.classList.remove("on"));
+  gShapes.append(p); paths[m.id] = p;
+
+  const t = document.createElementNS(NS,"text");
+  t.setAttribute("x", m.cx); t.setAttribute("y", m.cy);
+  t.setAttribute("class", m.a < 9000 ? "lbl s" : "lbl");
+  const tn = document.createElementNS(NS,"tspan");
+  tn.setAttribute("x", m.cx); tn.setAttribute("dy", "-0.55em"); tn.textContent = m.name;
+  const tp = document.createElementNS(NS,"tspan");
+  tp.setAttribute("x", m.cx); tp.setAttribute("dy", "1.15em"); tp.setAttribute("class", "pct");
+  t.append(tn, tp); gLabels.append(t); pctEls[m.id] = tp;
+
+  const li = document.createElement("li"), b = document.createElement("button");
+  const dot = document.createElement("span"), st = document.createElement("span");
+  dot.className = "dot"; st.className = "st";
+  b.append(dot, document.createTextNode(m.name), st);
+  b.addEventListener("click", e => step(m.id, e.shiftKey ? -1 : 1));
+  b.addEventListener("contextmenu", e => { e.preventDefault(); step(m.id, -1); });
+  b.addEventListener("mouseenter", () => paths[m.id].style.stroke = "var(--focus)");
+  b.addEventListener("mouseleave", () => paths[m.id].style.stroke = "");
+  li.append(b); document.getElementById("list").append(li);
+  dots[m.id] = dot; stLabels[m.id] = st;
+});
+DATA.m.forEach(m => apply(m.id));
+updateCounts();
+
+document.getElementById("toggleLabels").addEventListener("click", e => {
+  const off = svg.classList.toggle("hide-labels");
+  e.currentTarget.textContent = off ? "Show names" : "Hide names";
+});
+document.getElementById("clear").addEventListener("click", () => {
+  if (!confirm("Set every municipality back to 0%?")) return;
+  if (!SHEET_URL) { setStatus("No Google Sheet connected yet.", "err"); return; }
+  pending++; changes++; setStatus("Resetting…", "");
+  queue = queue.then(() => callSheet({action:"reset"}))
+    .then(() => { state = {}; DATA.m.forEach(m => apply(m.id)); updateCounts(); setStatus("Saved", "ok"); })
+    .catch(() => setStatus("Couldn't reset. Check your connection and try again.", "err"))
+    .finally(() => pending--);
+});
+
+load();
+setInterval(() => { if (!document.hidden) load(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>
