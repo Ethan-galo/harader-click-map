@@ -129,6 +129,14 @@ const statusEl = document.getElementById("status");
 function setStatus(text, kind){ statusEl.textContent = text; statusEl.dataset.kind = kind || ""; }
 let pending = 0;
 let changes = 0; // bumped on every local change, so a load that started earlier can't undo it
+// Härader whose latest change failed to save. They keep their local value on this page
+// (until it is reloaded) instead of being undone or overwritten by the sheet.
+const unsaved = new Set();
+function showSynced(okText){
+  if (!unsaved.size) { setStatus(okText, "ok"); return; }
+  const n = unsaved.size === 1 ? "1 härad has" : `${unsaved.size} härader have`;
+  setStatus(`${n} changes that couldn't be saved. They only show on this page and will be lost when you reload.`, "err");
+}
 
 // Talks to the Google Apps Script web app. Requests are sent as text/plain so the
 // browser doesn't need a CORS preflight, which Apps Script can't answer.
@@ -156,9 +164,10 @@ async function load(){
       pct = Number(pct);
       if (names[id] && PCT_TO_INDEX[pct]) next[id] = PCT_TO_INDEX[pct];
     });
+    unsaved.forEach(id => { if (state[id]) next[id] = state[id]; else delete next[id]; });
     state = next;
     DATA.m.forEach(m => apply(m.id)); updateCounts();
-    setStatus("Up to date", "ok");
+    showSynced("Up to date");
   } catch(e) {
     setStatus("Can't reach the Google Sheet. Changes won't be saved.", "err");
   }
@@ -166,20 +175,20 @@ async function load(){
 
 // Saves run one at a time, in order, so quick repeated taps can't arrive out of order.
 let queue = Promise.resolve();
-function saveOne(id, prevIndex){
+function saveOne(id){
   if (!SHEET_URL) { setStatus("No Google Sheet connected yet, so this change isn't saved.", "err"); return; }
   pending++; changes++; setStatus("Saving…", "");
   const pct = STATES[state[id] || 0].pct;
-  queue = queue.then(() => sendSave(id, pct, prevIndex));
+  queue = queue.then(() => sendSave(id, pct));
 }
-async function sendSave(id, pct, prevIndex){
+async function sendSave(id, pct){
   try {
     await callSheet({action:"set", id, name: names[id], pct});
-    setStatus("Saved", "ok");
+    unsaved.delete(id);
+    showSynced("Saved");
   } catch(e) {
-    if (prevIndex) state[id] = prevIndex; else delete state[id];
-    apply(id); updateCounts();
-    setStatus(`Couldn't save ${names[id]}. Check your connection and try again.`, "err");
+    unsaved.add(id);
+    setStatus(`Couldn't save ${names[id]}. The map keeps your change, but it will be lost when you reload.`, "err");
   } finally { pending--; }
 }
 function apply(id){
@@ -208,7 +217,7 @@ function step(id, dir){
   const prev = state[id] || 0;
   const next = (prev + dir + STATES.length) % STATES.length;
   if (next === 0) delete state[id]; else state[id] = next;
-  apply(id); updateCounts(); saveOne(id, prev);
+  apply(id); updateCounts(); saveOne(id);
   if (tip.classList.contains("on")) showTip(id);
 }
 function showTip(id){ tip.textContent = `${names[id]}: ${STATES[state[id] || 0].name}`; tip.classList.add("on"); }
@@ -260,11 +269,18 @@ document.getElementById("clear").addEventListener("click", () => {
   if (!confirm("Set every härad back to 0%?")) return;
   if (!SHEET_URL) { setStatus("No Google Sheet connected yet.", "err"); return; }
   pending++; changes++; setStatus("Resetting…", "");
+  const touched = Object.keys(state).concat([...unsaved]);
   queue = queue.then(() => callSheet({action:"reset"}))
-    .then(() => { state = {}; DATA.m.forEach(m => apply(m.id)); updateCounts(); setStatus("Saved", "ok"); })
-    .catch(() => setStatus("Couldn't reset. Check your connection and try again.", "err"))
+    .then(() => { unsaved.clear(); setStatus("Saved", "ok"); })
+    .catch(() => {
+      touched.forEach(id => unsaved.add(id));
+      setStatus("Couldn't save the reset. The map shows it, but it will be lost when you reload.", "err");
+    })
     .finally(() => pending--);
+  state = {}; DATA.m.forEach(m => apply(m.id)); updateCounts();
 });
+// Warn before leaving or reloading while some changes only exist on this page.
+window.addEventListener("beforeunload", e => { if (unsaved.size) e.preventDefault(); });
 
 // Draws the map and the progress key onto a canvas and saves it as a JPEG.
 // The image always uses the light colours, whichever theme the page is in.
