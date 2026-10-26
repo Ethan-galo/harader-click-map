@@ -1,6 +1,6 @@
 # Skåne progress map (Google Sheets version)
 
-A shared map of Skåne's 23 härader where tapping a härad raises it by 20% (0, 20, 40, 60, 80, 100). The page is hosted on GitHub Pages, and progress is saved in a Google Sheet through a small Google Apps Script. Everyone using the link sees the same map, and open pages check for other people's changes every 30 seconds and whenever they are reopened.
+A shared map of Skåne's 23 härader where tapping a härad moves it up one step: not started (0%), pågående (started, under 20%), then 20, 40, 60, 80 and 100%. A **Download JPEG** button saves an image of the map with the progress key. The page is hosted on GitHub Pages, and progress is saved in a Google Sheet through a small Google Apps Script. Everyone using the link sees the same map, and open pages check for other people's changes every 30 seconds and whenever they are reopened.
 
 ## Files
 
@@ -36,7 +36,7 @@ window.SKANE_CONFIG = {
 
 ## The sheet
 
-- **Progress** has one row per area: `id`, `name`, `pct` and when it last changed. You can edit percentages here directly; use only 0, 20, 40, 60, 80 or 100.
+- **Progress** has one row per area: `id`, `name`, `pct` and when it last changed. You can edit percentages here directly; use only 0, 10, 20, 40, 60, 80 or 100. The value 10 means pågående (started, under 20%).
 - **History** gets a row for every change made from the map, including "Reset all". To undo a mistake, look up the earlier value here and put it back in the Progress tab.
 
 ## Changing the script later

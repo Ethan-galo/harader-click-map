@@ -10,7 +10,8 @@
 
 var PROGRESS_TAB = 'Progress';
 var HISTORY_TAB = 'History';
-var ALLOWED_PCT = [0, 20, 40, 60, 80, 100];
+// 10 stands for "pågående": started, but under 20%.
+var ALLOWED_PCT = [0, 10, 20, 40, 60, 80, 100];
 
 // Run this once from the editor to create the tabs and grant permissions.
 function setup() {
@@ -58,7 +59,7 @@ function setPct_(body) {
   var name = String(body.name || '').slice(0, 100);
   var pct = Number(body.pct);
   if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) return { error: 'Invalid id' };
-  if (ALLOWED_PCT.indexOf(pct) === -1) return { error: 'pct must be 0, 20, 40, 60, 80 or 100' };
+  if (ALLOWED_PCT.indexOf(pct) === -1) return { error: 'pct must be 0, 10, 20, 40, 60, 80 or 100' };
 
   var sheet = getTab_(PROGRESS_TAB, ['id', 'name', 'pct', 'updated']);
   var rows = sheet.getDataRange().getValues();
