@@ -343,7 +343,10 @@ window.addEventListener("beforeunload", e => { if (unsaved.size) e.preventDefaul
 const EXPORT_COLORS = {bg:"#ffffff", ink:"#1f2a24", muted:"#5d6a62", line:"#c9cfc3", land:"#dfe3d6", edge:"#ffffff", sea:"#d6e4ea"};
 async function downloadJpeg(){
   const C = EXPORT_COLORS, S = 2, pad = 40, top = 110, keyW = 380;
-  const W = pad + DATA.w + pad + keyW + pad, H = top + DATA.h + pad;
+  // The härad and town lists go in two columns below the map.
+  const listTop = top + DATA.h + pad, rowH = 34;
+  const W = pad + DATA.w + pad + keyW + pad;
+  const H = listTop + 44 + Math.max(...GROUPS.map(grp => grp.areas.length)) * rowH + pad;
   const shape = (m, stroke, width) => {
     const s = STATES[state[m.id] || 0];
     return `<path d="${m.d}" fill="${s.color || C.land}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
@@ -416,6 +419,24 @@ async function downloadJpeg(){
         else line = next;
       });
       g.fillText(line, kx, ty); ty += 34;
+    });
+
+    const colW = (W - 3 * pad) / 2;
+    GROUPS.forEach((grp, gi) => {
+      const x = pad + gi * (colW + pad);
+      g.textAlign = "left"; g.fillStyle = C.ink; g.font = font(600, 22);
+      g.fillText(grp.label, x, listTop + 16);
+      grp.areas.forEach((m, i) => {
+        const y = listTop + 44 + i * rowH + rowH / 2, s = STATES[state[m.id] || 0];
+        box(x, y - 9, 18, 18, 4);
+        g.fillStyle = s.color || C.land; g.fill();
+        g.lineWidth = 1; g.strokeStyle = C.line; g.stroke();
+        g.textAlign = "left"; g.fillStyle = C.ink; g.font = font(400, 18);
+        g.fillText(m.name, x + 30, y);
+        g.textAlign = "right"; g.fillStyle = C.muted;
+        g.fillText(s.name, x + colW, y);
+        g.fillStyle = C.line; g.fillRect(x, y + rowH / 2 - .5, colW, 1);
+      });
     });
 
     const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.92));
