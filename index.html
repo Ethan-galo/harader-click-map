@@ -43,6 +43,9 @@ svg{display:block;width:100%;height:auto;touch-action:manipulation}
 .lbl{font-size:13px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-opacity:.75;pointer-events:none;text-anchor:middle;dominant-baseline:middle}
 .lbl.s,.lbl.t{font-size:10px}
 .lbl.t tspan:first-child{font-style:italic}
+.lbl.out{font-size:11px}
+.leader{stroke:var(--ink);stroke-opacity:.7;stroke-width:1;pointer-events:none}
+.hide-labels .leader{display:none}
 .lbl .pct{font-weight:400}
 .hide-labels .lbl{display:none}
 .tip{position:absolute;left:12px;top:12px;background:var(--surface);color:var(--ink);padding:6px 10px;border-radius:8px;font-weight:600;font-size:.95rem;box-shadow:0 1px 0 var(--line);pointer-events:none;opacity:0;transition:opacity .1s}
@@ -140,9 +143,43 @@ const GROUPS = [
   {label:"Städer", one:"town", areas:TOWNS, countId:"countTowns"}
 ];
 
+// The smallest towns are drawn 1.5 times their real size, around their own centre, so they
+// are easier to see and recognise. These are the towns small enough to get a tap circle
+// (area under 1500), plus Kristianstad. Their area "a" is left as the real one.
+const ENLARGE = 1.5;
+const ENLARGED = ["stad-landskrona", "stad-trelleborg", "stad-ystad", "stad-angelholm", "stad-simrishamn", "stad-kristianstad"];
+TOWNS.forEach(m => {
+  if (!ENLARGED.includes(m.id)) return;
+  m.d = m.d.replace(/(-?[\d.]+),(-?[\d.]+)/g, (_, x, y) =>
+    `${(m.cx + (x - m.cx) * ENLARGE).toFixed(1)},${(m.cy + (y - m.cy) * ENLARGE).toFixed(1)}`);
+});
+// Town names that don't fit inside the town are put out in the sea, with a thin line back
+// to the town. x,y is the middle of the two-line label; anchor is the side the text grows
+// from ("end": text to the left of x, "start": to the right, "middle": centred on x).
+const OUTSIDE = {
+  "stad-angelholm":  {x:148, y:200, anchor:"end"},
+  "stad-landskrona": {x:148, y:582, anchor:"end"},
+  "stad-trelleborg": {x:322, y:973, anchor:"end"},
+  "stad-ystad":      {x:647, y:955, anchor:"middle"},
+  "stad-simrishamn": {x:910, y:802, anchor:"start"}
+};
+// Kristianstad keeps its name inside; this spot, a little below its centre, is where the
+// name fits best inside the enlarged shape.
+const LABEL_AT = {"stad-kristianstad": {x:799, y:463}};
+// Where a label goes, and the leader line (from the town's centre to just short of the label).
+function labelPos(m){
+  const o = OUTSIDE[m.id], at = LABEL_AT[m.id] || {x:m.cx, y:m.cy};
+  if (!o) return {x:at.x, y:at.y, anchor:"middle", line:null};
+  const end = o.anchor === "end" ? [o.x + 3, o.y]
+    : o.anchor === "start" ? [o.x - 3, o.y]
+    : [o.x, o.y > m.cy ? o.y - 14 : o.y + 14];
+  return {x:o.x, y:o.y, anchor:o.anchor, line:[m.cx, m.cy, ...end]};
+}
+
 svg.setAttribute("viewBox", `0 0 ${DATA.w} ${DATA.h}`);
-const gShapes = document.createElementNS(NS,"g"), gTowns = document.createElementNS(NS,"g"), gLabels = document.createElementNS(NS,"g");
-svg.append(gShapes, gTowns, gLabels);
+// Leader lines sit under the towns, so the part that starts inside a town is hidden by it.
+const gShapes = document.createElementNS(NS,"g"), gLeaders = document.createElementNS(NS,"g"), gTowns = document.createElementNS(NS,"g"), gLabels = document.createElementNS(NS,"g");
+svg.append(gShapes, gLeaders, gTowns, gLabels);
 const paths = {}, dots = {}, stLabels = {}, names = {}, pctEls = {};
 
 const statusEl = document.getElementById("status");
@@ -284,13 +321,20 @@ function addArea(m, town){
   p.addEventListener("blur", () => tip.classList.remove("on"));
   (town ? gTowns : gShapes).append(p); paths[m.id] = p;
 
+  const pos = labelPos(m);
+  if (pos.line) {
+    const ln = document.createElementNS(NS,"line");
+    ["x1","y1","x2","y2"].forEach((k, i) => ln.setAttribute(k, pos.line[i]));
+    ln.setAttribute("class", "leader"); gLeaders.append(ln);
+  }
   const t = document.createElementNS(NS,"text");
-  t.setAttribute("x", m.cx); t.setAttribute("y", m.cy);
-  t.setAttribute("class", town ? "lbl t" : m.a < 12000 ? "lbl s" : "lbl");
+  t.setAttribute("x", pos.x); t.setAttribute("y", pos.y);
+  t.setAttribute("class", (town ? "lbl t" : m.a < 12000 ? "lbl s" : "lbl") + (pos.line ? " out" : ""));
+  t.style.textAnchor = pos.anchor;
   const tn = document.createElementNS(NS,"tspan");
-  tn.setAttribute("x", m.cx); tn.setAttribute("dy", "-0.55em"); tn.textContent = m.name;
+  tn.setAttribute("x", pos.x); tn.setAttribute("dy", "-0.55em"); tn.textContent = m.name;
   const tp = document.createElementNS(NS,"tspan");
-  tp.setAttribute("x", m.cx); tp.setAttribute("dy", "1.15em"); tp.setAttribute("class", "pct");
+  tp.setAttribute("x", pos.x); tp.setAttribute("dy", "1.15em"); tp.setAttribute("class", "pct");
   t.append(tn, tp); gLabels.append(t); pctEls[m.id] = tp;
 
   const li = document.createElement("li"), b = document.createElement("button");
@@ -351,7 +395,10 @@ async function downloadJpeg(){
     const s = STATES[state[m.id] || 0];
     return `<path d="${m.d}" fill="${s.color || C.land}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
   };
-  const shapes = DATA.m.map(m => shape(m, C.edge, 2.8)).join("")
+  const withLabels = !svg.classList.contains("hide-labels");
+  const leaders = withLabels ? AREAS.map(labelPos).filter(p => p.line).map(({line:[x1, y1, x2, y2]}) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${C.ink}" stroke-opacity=".7" stroke-width="1"/>`).join("") : "";
+  const shapes = DATA.m.map(m => shape(m, C.edge, 2.8)).join("") + leaders
     + `<g stroke-opacity=".55">${TOWNS.map(m => shape(m, C.ink, 2.6)).join("")}</g>`;
   const xml = `<svg xmlns="${NS}" width="${DATA.w * S}" height="${DATA.h * S}" viewBox="0 0 ${DATA.w} ${DATA.h}"><rect width="100%" height="100%" fill="${C.sea}"/>${shapes}</svg>`;
   const svgUrl = URL.createObjectURL(new Blob([xml], {type:"image/svg+xml"}));
@@ -376,12 +423,14 @@ async function downloadJpeg(){
     g.drawImage(img, pad, top, DATA.w, DATA.h);
     g.restore();
 
-    if (!svg.classList.contains("hide-labels")) {
-      g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    if (withLabels) {
+      g.textBaseline = "middle"; g.lineJoin = "round";
       g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.75)";
+      const ALIGN = {start:"left", end:"right", middle:"center"};
       AREAS.forEach(m => {
-        const town = TOWNS.includes(m);
-        const px = town || m.a < 12000 ? 10 : 13, x = pad + m.cx, y = top + m.cy;
+        const town = TOWNS.includes(m), pos = labelPos(m);
+        const px = pos.line ? 11 : town || m.a < 12000 ? 10 : 13, x = pad + pos.x, y = top + pos.y;
+        g.textAlign = ALIGN[pos.anchor];
         const s = STATES[state[m.id] || 0];
         [[m.name, town ? "italic 600" : 600, y - .55 * px], [s.short || s.name, 400, y + .6 * px]].forEach(([text, weight, ty]) => {
           g.font = font(weight, px);
