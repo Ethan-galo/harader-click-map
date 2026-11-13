@@ -278,7 +278,7 @@ function countStages(areas){
 }
 function summary(g){
   const avg = Math.round(g.areas.reduce((sum, m) => sum + STATES[state[m.id] || 0].pct, 0) / g.areas.length);
-  return `${g.label}: ${avg}% complete overall. ${countStages(g.areas)[STATES.length - 1]} of ${g.areas.length} at 100%.`;
+  return `${g.label}: ca ${avg} % registrerat. ${countStages(g.areas)[STATES.length - 1]} av ${g.areas.length} helt färdiga.`;
 }
 function updateCounts(){
   GROUPS.forEach((g, gi) => {
