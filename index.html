@@ -143,15 +143,18 @@ const GROUPS = [
   {label:"Städer", one:"town", areas:TOWNS, countId:"countTowns"}
 ];
 
-// The smallest towns are drawn 1.5 times their real size, around their own centre, so they
-// are easier to see and recognise. These are the towns small enough to get a tap circle
-// (area under 1500), plus Kristianstad. Their area "a" is left as the real one.
-const ENLARGE = 1.5;
-const ENLARGED = ["stad-landskrona", "stad-trelleborg", "stad-ystad", "stad-angelholm", "stad-simrishamn", "stad-kristianstad"];
+// Some towns are drawn bigger than their real size, around their own centre, so they are
+// easier to see and recognise. The number is how many times their real width and height.
+// Their area "a" is left as the real one.
+const ENLARGE = {
+  "stad-landskrona": 1.5, "stad-trelleborg": 1.5, "stad-ystad": 1.5, "stad-simrishamn": 1.5,
+  "stad-angelholm": 1.35, "stad-kristianstad": 1.65, "stad-helsingborg": 1.1
+};
 TOWNS.forEach(m => {
-  if (!ENLARGED.includes(m.id)) return;
+  const k = ENLARGE[m.id];
+  if (!k) return;
   m.d = m.d.replace(/(-?[\d.]+),(-?[\d.]+)/g, (_, x, y) =>
-    `${(m.cx + (x - m.cx) * ENLARGE).toFixed(1)},${(m.cy + (y - m.cy) * ENLARGE).toFixed(1)}`);
+    `${(m.cx + (x - m.cx) * k).toFixed(1)},${(m.cy + (y - m.cy) * k).toFixed(1)}`);
 });
 // Town names that don't fit inside the town are put out in the sea, with a thin line back
 // to the town. x,y is the middle of the two-line label; anchor is the side the text grows
@@ -164,7 +167,7 @@ const OUTSIDE = {
   "stad-simrishamn": {x:910, y:802, anchor:"start"}
 };
 // Kristianstad keeps its name inside; this spot, a little below its centre, is where the
-// name fits best inside the enlarged shape.
+// name fits inside the enlarged shape.
 const LABEL_AT = {"stad-kristianstad": {x:799, y:463}};
 // Where a label goes, and the leader line (from the town's centre to just short of the label).
 function labelPos(m){
