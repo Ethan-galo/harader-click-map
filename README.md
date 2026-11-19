@@ -37,7 +37,7 @@ window.SKANE_CONFIG = {
 
 ## The sheet
 
-- **Progress** has one row per area: `id`, `name`, `pct` and when it last changed. You can edit percentages here directly; use only 0, 10, 20, 40, 60, 80 or 100. The value 0 means <20% (some coverage, not being worked on) and 10 means pågående (being worked on, under 20%). Towns have ids starting with `stad-`; each gets its own row the first time it is changed. The tab is still called Progress, but on the page this is shown as **Status**.
+- **Progress** has one row per area: `id`, `name`, `pct` and when it last changed. You can edit percentages here directly; use only 0, 10, 20, 40, 60, 80 or 100. The value 0 means <20% (some coverage, not being worked on) and 10 means pågående (being worked on, under 20%). Towns have ids starting with `stad-`; each gets its own row the first time it is changed. The tab is still called Progress, but on the page this is shown as **Status**, with the note "befintliga domböcker lästa t.o.m. 1920" under it.
 - **History** gets a row for every change made from the map, including "Reset all". To undo a mistake, look up the earlier value here and put it back in the Progress tab.
 
 ## Changing the script later

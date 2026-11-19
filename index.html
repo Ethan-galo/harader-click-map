@@ -79,6 +79,7 @@ li button .st{margin-left:auto;color:var(--muted);font-size:.85rem;white-space:n
 .status{font-size:.9rem;margin-top:.5rem;color:var(--muted)}
 .status[data-kind="err"]{color:var(--err);font-weight:600}
 .count{color:var(--muted);font-size:.88rem;margin:0 0 8px}
+.note{color:var(--muted);font-size:.88rem;margin:-4px 0 10px}
 @media (prefers-reduced-motion:reduce){.m,.tip{transition:none}}
 </style>
 </head>
@@ -96,6 +97,7 @@ li button .st{margin-left:auto;color:var(--muted);font-size:.85rem;white-space:n
   <aside>
     <section>
       <h2>Status</h2>
+      <p class="note" id="statusNote">befintliga domböcker lästa t.o.m. 1920</p>
       <ul class="legend" id="legend"></ul>
     </section>
     <section class="row">
@@ -447,12 +449,16 @@ async function downloadJpeg(){
     g.textAlign = "left"; g.textBaseline = "middle";
     g.fillStyle = C.ink; g.font = font(600, 22);
     g.fillText("Status", kx, top + 16);
+    // The note under the heading pushes the rest of the key down by noteH.
+    const noteH = 28;
+    g.fillStyle = C.muted; g.font = font(400, 17);
+    g.fillText(document.getElementById("statusNote").textContent, kx, top + 44);
     const colX = [kx + keyW - 90, kx + keyW];
     g.textAlign = "right"; g.fillStyle = C.muted; g.font = font(400, 15);
-    GROUPS.forEach((grp, gi) => g.fillText(grp.label, colX[gi], top + 50));
+    GROUPS.forEach((grp, gi) => g.fillText(grp.label, colX[gi], top + noteH + 50));
     const counts = GROUPS.map(grp => countStages(grp.areas));
     STATES.forEach((s, i) => {
-      const y = top + 86 + i * 42;
+      const y = top + noteH + 86 + i * 42;
       box(kx, y - 13, 26, 26, 6);
       g.fillStyle = s.color || C.land; g.fill();
       g.lineWidth = 1; g.strokeStyle = C.line; g.stroke();
@@ -463,7 +469,7 @@ async function downloadJpeg(){
     });
     g.textAlign = "left"; g.fillStyle = C.muted; g.font = font(400, 17);
     // Each summary line is wrapped to the width of the key.
-    let ty = top + 86 + STATES.length * 42 + 10;
+    let ty = top + noteH + 86 + STATES.length * 42 + 10;
     GROUPS.forEach(grp => {
       let line = "";
       summary(grp).split(" ").forEach(word => {
